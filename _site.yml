@@ -1,0 +1,8 @@
+name: "Courses"
+navbar:
+  title: "Courses"
+  type: inverse
+  left:
+    - text: "Home"
+      icon: fa-home
+      href: index.html
