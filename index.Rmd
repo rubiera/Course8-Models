@@ -1,29 +1,52 @@
 ---
 title: "Machine Learning Modeling of Selected Weight-lifting Activites"
 author: "Antonio Rubiera"
-date: "10/30/2019"
-output: html_document
+date: "11/21/2019"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Introduction
+## Summary of this Analysis
 
-In this analysis, we evaluate the data used by Velloso et al. in their paper "Qualitative Activity Recognition of Weight Lifting Exercises" [ACM SIGCHI 2013]. We will be using a specific seed (22) to ensure our data runs are reproducible. 
+In this analysis, we evaluate the data used by Velloso et al. in their paper "Qualitative Activity Recognition of Weight Lifting Exercises" [ACM SIGCHI 2013]. The data was collected for six young men performing weight-lifting exercises with a light dumbbell (1.25 KG) using five pre-determined sequences (named as the variable 'classe' in the dataset). Sequence A is the correct sequence, and sequences B, C, D, and E are variations of the men performing the weigth-lifting exercise incorrectly. Sequences B, C, D, and E are specific ways to perform the weigth-lifting exercise incorrectly, and this means that the four wrong sequences should be just as separable from each other as they are from A.
 
-```{r library seed and data, warning=FALSE, message=FALSE}
+We use a specific seed (22) to ensure our data runs are reproducible. We perform exploratory data analysis (EDA), caret model selection, and feature selection in an appendix. These steps are as follows:
+
+- Explore the (unaggregated) training time series data to get a feel for what movements were performed for each sequence, as captured by the classe variable.
+- After selecting only the rows with aggregated time bin data from the training data, and removing fields that contain no data all all zero and/or all NA values, we explore this subset of the data.
+- For the aggregated time bin training data, we generate the model accuracy contribution of each feature using the Recursive Feature Elimination (RFE) algorithm. We come up with the features with greater than or equal to 0.75 correlation as features that can be excluded from the classification training algorithms, but none of these fields are found in the test data. Therefore, this selection criteria is not useful in our analysis.
+- For the aggregated time bin training data, and using all predictors found in the training data, we apply ten models using the caret package to asses the within sample accuracy of predicting the weight-lifting activities using classe as our response variable. We resample from within the training data to obtain confusion matrix results for each caret model. From this work, we determine that four models (Decision Tree, Random Forest, Bagged Trees and SVMpoly-short for Support Vector Machines with polynomial kernel) yield the highest accuracy and kappa measures.
+- For the unaggregated time bin training data, we generate the model accuracy contribution of each feature using the RFE algorithm. We come up with the features with greater than or equal to 0.75 correlation as features that can be excluded from the classification training algorithms. Since some of these fields we want to exclude are found in the test data, we use this knowledge. 
+- Finally, within the appendix, and for the unaggregated time bin training data, using all predictors found in the training data, we apply the four models we found to have the highest accuracy and kappa measures (Decision Tree, Random Forest, Bagged Trees and SVMpoly), using the caret package to asses the within sample accuracy of predicting the weight-lifting activities using classe as our response variable. We resample here as well from within the training data to obtain confusion matrix results for each caret model.
+
+After we perform all of the steps previously outlined and contained here in an appendix, we have four caret models we want to apply on the test data in two cycles:
+
+- In the first cycle, we use all predictors. We obtain predictions for classe for the 20 events in the test data. We estimate that the out of sample error will be close to the in-sample error (approximately 84.8 percent mean accuracy for a Random Forest model using the unaggregate time data). We find the mean accuracy for a Random Forest model to be 79.3 using all predictors.
+- In the second and last cycle, we use only the predictors that have less than 0.75 correlation, based on our cross-validation analysis described in the appendix. We expect the out of sample error will be close to the in-sample error (approximately 81.8 percent mean accuracy for a Random Forest model using the unaggregate time data). We find the mean accuracy for a Random Forest model to be 76.0 using only the least-correlated predictors. We expected this accuracy to be higher than the accuracy when using all predictors.
+ 
+
+```{r library-seed, warning=FALSE, message=FALSE}
 library(tidyverse)
 library(caret)
-library(ggplot2)
 library(knitr)
 set.seed(22)
 ```
 
-The training dataset has two types of data: a time series dataset, and time window measurements of this time series data. Here is the time series data.
+## Time Series (Not Aggregated over Time) Data
 
-```{r data time, warning=FALSE, message=FALSE}
+The training dataset has two types of data: a time series dataset, and time window measurements of this time series data. Here is the time series data. The measurements in this data for sensors located at the belt, arm (glove), forearm, and dumbbell are:
+
+- The Euler angles (roll, pitch, yaw)
+- Gyroscope measurement (x,y,z)
+- Magnetometer measurement (x,y,z)
+- Acceleration measurement (x,y,z)
+
+```{r data-time, warning=FALSE, message=FALSE}
 training_all <- read.csv("./data/pml-training.csv")
 training_all_data <- select(training_all, c("user_name",
                             "raw_timestamp_part_1","raw_timestamp_part_2",
@@ -43,30 +66,644 @@ training_all_data <- select(training_all, c("user_name",
                             "gyros_forearm_y","gyros_forearm_z","accel_forearm_x",
                             "accel_forearm_y","accel_forearm_z","magnet_forearm_x",
                             "magnet_forearm_y","magnet_forearm_z","classe"))
-head(training_all_data)
-str(training_all_data)
 ```
 
-Here are the time window measurements after removal of several columns that only contained zeros or NAs:
+Here are the counts by user_name and classe for the time series data.
 
---kurtosis_yaw_belt
---skewness_yaw_belt
---kurtosis_yaw_dumbbell
---skewness_yaw_dumbbell
---kurtosis_yaw_forearm
---skewness_yaw_forearm
---amplitude_yaw_dumbbell
---amplitude_yaw_forearm
---amplitude_yaw_belt
+```{r data-kable-1, warning=FALSE, message=FALSE}
+kable(table(training_all_data$user_name, training_all_data$classe))
+```
 
-```{r data sdvar, warning=FALSE, message=FALSE}
+
+## Predicting Classe for the Test Data
+
+We relegate the explotary data analysis, and running various caret models on resampled training data to an appendix. From this analysis, we determine that four types of models should yield the most accuate results:
+
+- Random Forests (method="rf" in caret train function)
+- Decision Trees (method="C5.0" in caret train function)
+- Bagged Trees (method="treebag" in caret train function)
+- SVM Poly, short for Least Squares Support Vector Machines with Polynomial Kernel  (method="svmPoly" in caret train function)
+
+We run on these four models to make our predictions for which classe was performed for the twenty data records collected in the test data. We first need to select the complete observations fields in the test data to match fields in the training data. We save a copy of all of the non-aggregated columns in the training data (training_nonblanks_cv) for a cross-validation analysis enclosed here as an appendix.
+
+```{r predict-1, warning=FALSE, message=FALSE}
 training_all_clean <- read.csv("./data/pml-training.csv",
                                na.strings = c("NA","NaN","","#DIV/0!"))
 training_nonblanks_clean <- filter(training_all_clean, kurtosis_roll_belt != "")
 training_nonblanks_clean <- mutate(training_nonblanks_clean, 
-                   rel_time = as.numeric(paste(raw_timestamp_part_1,
-                   raw_timestamp_part_2,sep=".")))
-training_sdvar_sel_clean_all <- select(training_nonblanks_clean,c("user_name",
+                                   rel_time = as.numeric(paste(raw_timestamp_part_1,
+                                                               raw_timestamp_part_2,sep=".")))
+
+
+training_nonblanks_clean <- select(training_nonblanks_clean, 
+                c("roll_belt", "pitch_belt", "yaw_belt", "total_accel_belt", 
+                "gyros_belt_x", "gyros_belt_y", "gyros_belt_z", "accel_belt_x",
+                "accel_belt_y", "accel_belt_z", "magnet_belt_x", 
+                "magnet_belt_y", "magnet_belt_z", "roll_arm", "pitch_arm", "yaw_arm",
+                "accel_belt_y", "accel_belt_z", "magnet_belt_x", 
+                "magnet_arm_y", "magnet_arm_z", "roll_dumbbell", "pitch_dumbbell", "yaw_dumbbell",
+                "total_accel_dumbbell", "gyros_dumbbell_x", "gyros_dumbbell_y",
+                "gyros_dumbbell_z", "accel_dumbbell_x", "accel_dumbbell_y", 
+                "accel_dumbbell_z", "magnet_dumbbell_x", "magnet_dumbbell_y",
+                "magnet_dumbbell_z", "roll_forearm", "pitch_forearm", "yaw_forearm",
+                "total_accel_forearm", "gyros_forearm_x", "gyros_forearm_y", "gyros_forearm_z", 
+                "accel_forearm_x", "accel_forearm_y",
+                "accel_forearm_z", "magnet_forearm_x", "magnet_forearm_y", 
+                "magnet_forearm_z", "classe"))
+
+training_blanks_cv <- select(training_all, c("roll_belt",
+                      "pitch_belt","yaw_belt","total_accel_belt","gyros_belt_x",
+                      "gyros_belt_y","gyros_belt_z","accel_belt_x","accel_belt_y",
+                      "accel_belt_z","magnet_belt_x","magnet_belt_y",
+                      "magnet_belt_z","roll_arm","pitch_arm","yaw_arm",
+                      "total_accel_arm","gyros_arm_x","gyros_arm_y",
+                      "gyros_arm_z","accel_arm_x","accel_arm_y","accel_arm_z",
+                      "magnet_arm_x","magnet_arm_y","magnet_arm_z","roll_dumbbell",
+                      "pitch_dumbbell","yaw_dumbbell","total_accel_dumbbell",
+                      "gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z",
+                      "accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z",
+                      "magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z",
+                      "roll_forearm","pitch_forearm","yaw_forearm",
+                      "total_accel_forearm","gyros_forearm_x",
+                      "gyros_forearm_y","gyros_forearm_z","accel_forearm_x",
+                      "accel_forearm_y","accel_forearm_z","magnet_forearm_x",
+                      "magnet_forearm_y","magnet_forearm_z","classe"))
+
+```
+
+Here is the selection of complete observation fields in the test data.
+
+```{r predict-2, warning=FALSE, message=FALSE}
+testing_all_clean <- read.csv("./data/pml-testing.csv")
+testing_nonblanks_clean <- mutate(testing_all_clean, 
+                                  rel_time = as.numeric(paste(raw_timestamp_part_1,
+                                                              raw_timestamp_part_2,sep=".")))
+
+testing_nonblanks_clean <- select(testing_nonblanks_clean, 
+                        c("roll_belt", "pitch_belt", "yaw_belt", "total_accel_belt", 
+                        "gyros_belt_x", "gyros_belt_y", "gyros_belt_z", "accel_belt_x",
+                        "accel_belt_y", "accel_belt_z", "magnet_belt_x", 
+                        "magnet_belt_y", "magnet_belt_z", "roll_arm", "pitch_arm", "yaw_arm",
+                        "accel_belt_y", "accel_belt_z", "magnet_belt_x", 
+                        "magnet_belt_y", "magnet_belt_z", "roll_arm", "pitch_arm", "yaw_arm",
+                        "magnet_arm_y", "magnet_arm_z", "roll_dumbbell", "pitch_dumbbell", "yaw_dumbbell",
+                        "total_accel_dumbbell", "gyros_dumbbell_x", "gyros_dumbbell_y",
+                        "gyros_dumbbell_z", "accel_dumbbell_x", "accel_dumbbell_y", 
+                        "accel_dumbbell_z", "magnet_dumbbell_x", "magnet_dumbbell_y",
+                        "magnet_dumbbell_z", "roll_forearm", "pitch_forearm", "yaw_forearm",
+                        "total_accel_forearm", "gyros_forearm_x", "gyros_forearm_y", "gyros_forearm_z", 
+                        "accel_forearm_x", "accel_forearm_y",
+                        "accel_forearm_z", "magnet_forearm_x", "magnet_forearm_y", 
+                         "magnet_forearm_z", "problem_id"))
+
+```
+
+We setup a resampling control function that we will insert into each model. We use cross validation using a random forest repeated three times.
+
+```{r resample-for-all, warning=FALSE, message=FALSE}
+set.seed(22)
+controlTS <- rfeControl(functions=rfFuncs, method="repeatedcv", number=3)
+```
+
+Text
+
+```{r predict-rf-feature-selection-1, warning=FALSE, message=FALSE}
+set.seed(22)
+correlationMatrixTS <- cor(training_nonblanks_clean[,1:44], use="complete.obs")
+highlyCorrelatedTS75 <- findCorrelation(correlationMatrixTS, cutoff=0.75)
+names(training_nonblanks_clean[,highlyCorrelatedTS75])
+```
+
+Text
+
+```{r predict-rf-feature-selection-2, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+resultsTS <- rfe(training_nonblanks_clean[,1:44], 
+                 training_nonblanks_clean$classe, sizes=c(1:20), rfeControl=controlTS)
+print(resultsTS)
+
+```
+
+
+Text
+
+```{r predict-rf-feature-selection-3, warning=FALSE, message=FALSE}
+set.seed(22)
+predictors(resultsTS)
+plot(resultsTS, type=c("g", "o"))
+```
+
+
+
+
+## Running the training model on the test data for Random Forests (all fields) 
+
+
+```{r predict-3-rf-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+TcontrolTS <- trainControl(method="repeatedcv", number=10)
+modelTSrf <- train(factor(classe) ~ ., data=training_nonblanks_clean, 
+                   method="rf", preProcess=c("scale","center"), 
+                   trControl=TcontrolTS, na.action=na.pass)
+print(modelTSrf)
+importanceTSrf <- varImp(modelTSrf, scale=TRUE)
+print(importanceTSrf)
+```
+
+Text
+
+```{r predict-4-rf-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+predictrf <- predict(modelTSrf,newdata=testing_nonblanks_clean)
+predictrf
+```
+
+## Running the training model on the test data for Decision Trees (all fields) 
+
+```{r predict-3-C50-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSC50 <- train(factor(classe) ~ ., data=training_nonblanks_clean, 
+                   method="C5.0", preProcess=c("scale","center"), 
+                   trControl=TcontrolTS, na.action=na.pass)
+print(modelTSC50)
+importanceTSC50 <- varImp(modelTSC50, scale=TRUE)
+print(importanceTSC50)
+```
+
+Text
+
+```{r predict-4-C5.0-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+predictC50 <- predict(modelTSC50,newdata=testing_nonblanks_clean)
+predictC50
+```
+
+
+## Running the training model on the test data for Bagged Trees (all fields) 
+
+
+```{r predict-3-treebag-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTStreebag <- train(factor(classe) ~ ., data=training_nonblanks_clean, 
+                   method="treebag", preProcess=c("scale","center"), 
+                   trControl=TcontrolTS, na.action=na.pass)
+print(modelTStreebag)
+importanceTStreebag <- varImp(modelTStreebag, scale=TRUE)
+print(importanceTStreebag)
+```
+
+Text
+
+```{r predict-4-treebag-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+predicttreebag <- predict(modelTStreebag,newdata=testing_nonblanks_clean)
+predicttreebag
+```
+
+
+## Running the training model on the test data for SVM Polynomial Kernel (all fields) 
+
+
+```{r predict-3-svmPoly-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSsvmPoly <- train(factor(classe) ~ ., data=training_nonblanks_clean, 
+                   method="svmPoly", preProcess=c("scale","center"), 
+                   trControl=TcontrolTS, na.action=na.pass)
+print(modelTSsvmPoly)
+importanceTSsvmPoly <- varImp(modelTSsvmPoly, scale=TRUE)
+print(importanceTSsvmPoly)
+```
+
+Text
+
+```{r predict-4-svmPoly-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+predictsvmPoly <- predict(modelTSsvmPoly,newdata=testing_nonblanks_clean)
+predictsvmPoly
+```
+
+## all models
+
+```{r model-all-allfields, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+allModelsall <- resamples(list(SVMPoly=modelTSsvmPoly, 
+                          DecisionTree=modelTSC50, 
+                          RandomForest=modelTSrf, 
+                          BaggedTrees=modelTStreebag
+                          ))
+summary(allModelsall)
+```
+
+
+Text                    
+
+```{r model-bwplot-1-all, warning=FALSE, message=FALSE, cache=TRUE}
+bwplot(allModelsall)
+```
+
+Text
+
+```{r data-kable-models-1-all, warning=FALSE, message=FALSE}
+require(knitr)
+predictTableall <- cbind(testing_nonblanks_clean$problem_id,
+      predictrf,predictC50,predicttreebag,predictsvmPoly)
+kable(predictTableall)
+```
+
+Explain use of minus highly correlated fields
+## Running the training model on the test data for Random Forests (minus highly correlated fields) 
+
+
+```{r predict-3-rf-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselrf <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
+                  gyros_belt_y + gyros_belt_z +   
+                  magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                  accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                  pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                  gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                  pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                  gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                  magnet_forearm_x + magnet_forearm_y + 
+                  magnet_forearm_z, data=training_nonblanks_clean, 
+                  method="rf", preProcess=c("scale","center"), 
+                  trControl=TcontrolTS, na.action=na.pass)
+print(modelTSselrf)
+importanceTSselrf <- varImp(modelTSselrf, scale=TRUE)
+print(importanceTSselrf)
+```
+
+Text
+
+```{r predict-4-rf-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+predictselrf <- predict(modelTSselrf,newdata=testing_nonblanks_clean)
+predictselrf
+```
+
+## Running the training model on the test data for Decision Trees (minus highly correlated fields) 
+
+
+```{r predict-3-C50-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselC50 <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + gyros_belt_y + gyros_belt_z +   
+                   magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                   accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                   pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                   gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                   pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                   gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                   magnet_forearm_x + magnet_forearm_y + 
+                   magnet_forearm_z, data=training_nonblanks_clean, 
+                   method="C5.0", preProcess=c("scale","center"), 
+                   trControl=TcontrolTS, na.action=na.pass)
+print(modelTSselC50)
+importanceTSselC50 <- varImp(modelTSselC50, scale=TRUE)
+print(importanceTSselC50)
+```
+
+Text
+
+```{r predict-4-C50-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+predictselC50 <- predict(modelTSselC50,newdata=testing_nonblanks_clean)
+predictselC50
+```
+
+
+## Running the training model on the test data for Bagged Trees (minus highly correlated fields) 
+
+
+```{r predict-3-treebag-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSseltreebag <- train(factor(classe) ~ pitch_belt + yaw_belt + 
+                       gyros_belt_x + gyros_belt_y + gyros_belt_z +   
+                       magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                       accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                       pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                       gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                       pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                       gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                       magnet_forearm_x + magnet_forearm_y + 
+                       magnet_forearm_z, data=training_nonblanks_clean, 
+                       method="treebag", preProcess=c("scale","center"), 
+                       trControl=TcontrolTS, na.action=na.pass)
+print(modelTSseltreebag)
+importanceTSseltreebag <- varImp(modelTSseltreebag, scale=TRUE)
+print(importanceTSseltreebag)
+```
+
+Text
+
+```{r predict-4-treebag-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+predictseltreebag <- predict(modelTSseltreebag,newdata=testing_nonblanks_clean)
+predictseltreebag
+```
+
+## Running the training model on the test data for SVM Polynomial Kernel (minus highly correlated fields) 
+
+
+```{r predict-3-svmPoly-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselsvmPoly <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
+                       gyros_belt_y + gyros_belt_z +   
+                       magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                       accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                       pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                       gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                       pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                       gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                       magnet_forearm_x + magnet_forearm_y + 
+                       magnet_forearm_z, data=training_nonblanks_clean, 
+                       method="svmPoly", preProcess=c("scale","center"), 
+                       trControl=TcontrolTS, na.action=na.pass)
+print(modelTSselsvmPoly)
+importanceTSselsvmPoly <- varImp(modelTSselsvmPoly, scale=TRUE)
+print(importanceTSselsvmPoly)
+```
+
+Text
+
+```{r predict-4-svmPoly-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+predictselsvmPoly <- predict(modelTSselsvmPoly,newdata=testing_nonblanks_clean)
+predictselsvmPoly
+```
+
+
+## all models
+
+```{r model-sel, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+allModelssel <- resamples(list(SVMPoly=modelTSselsvmPoly, 
+                          DecisionTree=modelTSselC50, 
+                          RandomForest=modelTSselrf, 
+                          BaggedTrees=modelTSseltreebag
+                          ))
+summary(allModelssel)
+```
+
+
+Text                    
+
+```{r model-sel-bwplot-1, warning=FALSE, message=FALSE, cache=TRUE}
+bwplot(allModelssel)
+```
+
+Text
+
+```{r data-kable-models-1, warning=FALSE, message=FALSE}
+require(knitr)
+predictTable <- cbind(testing_nonblanks_clean$problem_id,
+      predictselrf,predictselC50,predictseltreebag,predictselsvmPoly)
+kable(predictTable)
+```
+
+top 20 only
+
+```{r predict-3-rf-sel-top20, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselrftop20 <- train(factor(classe) ~ roll_dumbbell + magnet_belt_y + 
+                             yaw_belt + pitch_forearm + magnet_dumbbell_z + 
+                             magnet_belt_z + accel_belt_z + gyros_dumbbell_y + 
+                             pitch_dumbbell  + pitch_belt + yaw_dumbbell + magnet_arm_y +                                     roll_forearm  + magnet_forearm_x + roll_arm   + 
+                             accel_forearm_x  + accel_forearm_z  + magnet_forearm_y  +                                        magnet_belt_x  + magnet_forearm_z , 
+                             data=training_nonblanks_clean, 
+                             method="rf", preProcess=c("scale","center"), 
+                             trControl=TcontrolTS, na.action=na.pass)
+importanceTSselrftop20 <- varImp(modelTSselrftop20, scale=TRUE)
+print(importanceTSselrftop20)
+
+predictselrftop20 <- predict(modelTSselrftop20,newdata=testing_nonblanks_clean)
+predictselrftop20
+```
+
+
+Stepwise getting rid of predictors one by one:
+#magnet_forearm_y    0.000   1
+
+```{r predict-3-rf-sel-minus1, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselrfminus1 <- train(factor(classe) ~ roll_dumbbell + magnet_belt_y + 
+                             yaw_belt + pitch_forearm + magnet_dumbbell_z + 
+                             magnet_belt_z + accel_belt_z + gyros_dumbbell_y + 
+                             pitch_dumbbell  + pitch_belt + yaw_dumbbell + magnet_arm_y +                                     roll_forearm  + magnet_forearm_x + roll_arm   + 
+                             accel_forearm_x  + accel_forearm_z  +                                                            magnet_belt_x  + magnet_forearm_z ,
+                  data=training_nonblanks_clean, 
+                  method="rf", preProcess=c("scale","center"), 
+                  trControl=TcontrolTS, na.action=na.pass)
+importanceTSselrfminus1 <- varImp(modelTSselrfminus1, scale=TRUE)
+print(importanceTSselrfminus1)
+
+predictselrfminus1 <- predict(modelTSselrfminus1,newdata=testing_nonblanks_clean)
+predictselrfminus1
+```
+
+Stepwise getting rid of predictors one by one:
+accel_forearm_z     4.376  2
+
+```{r predict-3-rf-sel-minus2, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselrfminus2 <- train(factor(classe) ~ roll_dumbbell + magnet_belt_y + 
+                             yaw_belt + pitch_forearm + magnet_dumbbell_z + 
+                             magnet_belt_z + accel_belt_z + gyros_dumbbell_y + 
+                             pitch_dumbbell  + pitch_belt + yaw_dumbbell + magnet_arm_y +                                     roll_forearm  + magnet_forearm_x + roll_arm   + 
+                             accel_forearm_x  + magnet_belt_x  + magnet_forearm_z ,
+                  data=training_nonblanks_clean, 
+                  method="rf", preProcess=c("scale","center"), 
+                  trControl=TcontrolTS, na.action=na.pass)
+importanceTSselrfminus2 <- varImp(modelTSselrfminus2, scale=TRUE)
+print(importanceTSselrfminus2)
+
+predictselrfminus2 <- predict(modelTSselrfminus2,newdata=testing_nonblanks_clean)
+predictselrfminus2
+```
+
+Stepwise getting rid of predictors one by one:
+ magnet_belt_x       6.859  3 
+
+```{r predict-3-rf-sel-minus3, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselrfminus3 <- train(factor(classe) ~ roll_dumbbell + magnet_belt_y + 
+                             yaw_belt + pitch_forearm + magnet_dumbbell_z + 
+                             magnet_belt_z + accel_belt_z + gyros_dumbbell_y + 
+                             pitch_dumbbell  + pitch_belt + yaw_dumbbell + magnet_arm_y +                                     roll_forearm  + magnet_forearm_x + roll_arm   + 
+                             accel_forearm_x  +  magnet_forearm_z, 
+                  data=training_nonblanks_clean, 
+                  method="rf", preProcess=c("scale","center"), 
+                  trControl=TcontrolTS, na.action=na.pass)
+importanceTSselrfminus3 <- varImp(modelTSselrfminus3, scale=TRUE)
+print(importanceTSselrfminus3)
+
+predictselrfminus3 <- predict(modelTSselrfminus3,newdata=testing_nonblanks_clean)
+predictselrfminus3
+```
+
+Stepwise getting rid of predictors one by one:
+magnet_forearm_z   10.501  4
+
+```{r predict-3-rf-sel-minus4, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelTSselrfminus4 <- train(factor(classe) ~ roll_dumbbell + magnet_belt_y + 
+                             yaw_belt + pitch_forearm + magnet_dumbbell_z + 
+                             magnet_belt_z + accel_belt_z + gyros_dumbbell_y + 
+                             pitch_dumbbell  + pitch_belt + yaw_dumbbell + magnet_arm_y +                                     roll_forearm  + magnet_forearm_x + roll_arm   + 
+                             accel_forearm_x, 
+                  data=training_nonblanks_clean, 
+                  method="rf", preProcess=c("scale","center"), 
+                  trControl=TcontrolTS, na.action=na.pass)
+importanceTSselrfminus4 <- varImp(modelTSselrfminus4, scale=TRUE)
+print(importanceTSselrfminus4)
+
+predictselrfminus4 <- predict(modelTSselrfminus4,newdata=testing_nonblanks_clean)
+predictselrfminus4
+```
+
+Text
+
+```{r data-kable-models-minus, warning=FALSE, message=FALSE}
+require(knitr)
+predictTable2 <- cbind(testing_nonblanks_clean$problem_id,predictselrftop20,
+      predictselrfminus1,predictselrfminus2,predictselrfminus3,
+      predictselrfminus4)
+kable(predictTable2)
+```
+
+## all models minus
+
+```{r model-sel-minus, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+allModelsselminus <- resamples(list(Top20=modelTSselrftop20, 
+                          Minus1=modelTSselrfminus1,
+                          Minus2=modelTSselrfminus2,
+                          Minus3=modelTSselrfminus3,
+                          Minus4=modelTSselrfminus4
+                          ))
+summary(allModelsselminus)
+```
+
+
+Text                    
+
+```{r model-sel-bwplot-1-minus, warning=FALSE, message=FALSE, cache=TRUE}
+bwplot(allModelsselminus)
+```
+
+
+## Appendix: Time Series Exploratory Data Analysis
+
+We zero the time distributions by user_name and by classe. Because each of the thirty time series were collected at different times, each one has to be time-zeroed individually. As an example, we compare the A sequence for two user_names for the roll of the belt measurement.
+
+```{r EDA-1, warning=FALSE, message=FALSE}
+trg_data <- mutate(training_all_data, rel_time = as.numeric(paste(raw_timestamp_part_1,
+                                raw_timestamp_part_2,sep=".")))
+
+trg_adelmo_A <- filter(trg_data,user_name == "adelmo" & classe == "A")
+trg_adelmo_B <- filter(trg_data,user_name == "adelmo" & classe == "B")
+trg_adelmo_C <- filter(trg_data,user_name == "adelmo" & classe == "C")
+trg_adelmo_D <- filter(trg_data,user_name == "adelmo" & classe == "D")
+trg_adelmo_E <- filter(trg_data,user_name == "adelmo" & classe == "E")
+
+trg_data_adelmo_A_left <- mutate(trg_adelmo_A, time_left = rel_time - min(rel_time))
+trg_data_adelmo_B_left <- mutate(trg_adelmo_B, time_left = rel_time - min(rel_time))
+trg_data_adelmo_C_left <- mutate(trg_adelmo_C, time_left = rel_time - min(rel_time))
+trg_data_adelmo_D_left <- mutate(trg_adelmo_D, time_left = rel_time - min(rel_time))
+trg_data_adelmo_E_left <- mutate(trg_adelmo_E, time_left = rel_time - min(rel_time))
+
+trg_carlitos_A <- filter(trg_data,user_name == "carlitos" & classe == "A")
+trg_carlitos_B <- filter(trg_data,user_name == "carlitos" & classe == "B")
+trg_carlitos_C <- filter(trg_data,user_name == "carlitos" & classe == "C")
+trg_carlitos_D <- filter(trg_data,user_name == "carlitos" & classe == "D")
+trg_carlitos_E <- filter(trg_data,user_name == "carlitos" & classe == "E")
+
+trg_data_carlitos_A_left <- mutate(trg_carlitos_A, time_left = rel_time - min(rel_time))
+trg_data_carlitos_B_left <- mutate(trg_carlitos_B, time_left = rel_time - min(rel_time))
+trg_data_carlitos_C_left <- mutate(trg_carlitos_C, time_left = rel_time - min(rel_time))
+trg_data_carlitos_D_left <- mutate(trg_carlitos_D, time_left = rel_time - min(rel_time))
+trg_data_carlitos_E_left <- mutate(trg_carlitos_E, time_left = rel_time - min(rel_time))
+
+trg_charles_A <- filter(trg_data,user_name == "charles" & classe == "A")
+trg_charles_B <- filter(trg_data,user_name == "charles" & classe == "B")
+trg_charles_C <- filter(trg_data,user_name == "charles" & classe == "C")
+trg_charles_D <- filter(trg_data,user_name == "charles" & classe == "D")
+trg_charles_E <- filter(trg_data,user_name == "charles" & classe == "E")
+
+trg_data_charles_A_left <- mutate(trg_charles_A, time_left = rel_time - min(rel_time))
+trg_data_charles_B_left <- mutate(trg_charles_B, time_left = rel_time - min(rel_time))
+trg_data_charles_C_left <- mutate(trg_charles_C, time_left = rel_time - min(rel_time))
+trg_data_charles_D_left <- mutate(trg_charles_D, time_left = rel_time - min(rel_time))
+trg_data_charles_E_left <- mutate(trg_charles_E, time_left = rel_time - min(rel_time))
+
+trg_eurico_A <- filter(trg_data,user_name == "eurico" & classe == "A")
+trg_eurico_B <- filter(trg_data,user_name == "eurico" & classe == "B")
+trg_eurico_C <- filter(trg_data,user_name == "eurico" & classe == "C")
+trg_eurico_D <- filter(trg_data,user_name == "eurico" & classe == "D")
+trg_eurico_E <- filter(trg_data,user_name == "eurico" & classe == "E")
+
+trg_data_eurico_A_left <- mutate(trg_eurico_A, time_left = rel_time - min(rel_time))
+trg_data_eurico_B_left <- mutate(trg_eurico_B, time_left = rel_time - min(rel_time))
+trg_data_eurico_C_left <- mutate(trg_eurico_C, time_left = rel_time - min(rel_time))
+trg_data_eurico_D_left <- mutate(trg_eurico_D, time_left = rel_time - min(rel_time))
+trg_data_eurico_E_left <- mutate(trg_eurico_E, time_left = rel_time - min(rel_time))
+
+trg_jeremy_A <- filter(trg_data,user_name == "jeremy" & classe == "A")
+trg_jeremy_B <- filter(trg_data,user_name == "jeremy" & classe == "B")
+trg_jeremy_C <- filter(trg_data,user_name == "jeremy" & classe == "C")
+trg_jeremy_D <- filter(trg_data,user_name == "jeremy" & classe == "D")
+trg_jeremy_E <- filter(trg_data,user_name == "jeremy" & classe == "E")
+
+trg_data_jeremy_A_left <- mutate(trg_jeremy_A, time_left = rel_time - min(rel_time))
+trg_data_jeremy_B_left <- mutate(trg_jeremy_B, time_left = rel_time - min(rel_time))
+trg_data_jeremy_C_left <- mutate(trg_jeremy_C, time_left = rel_time - min(rel_time))
+trg_data_jeremy_D_left <- mutate(trg_jeremy_D, time_left = rel_time - min(rel_time))
+trg_data_jeremy_E_left <- mutate(trg_jeremy_E, time_left = rel_time - min(rel_time))
+
+trg_pedro_A <- filter(trg_data,user_name == "pedro" & classe == "A")
+trg_pedro_B <- filter(trg_data,user_name == "pedro" & classe == "B")
+trg_pedro_C <- filter(trg_data,user_name == "pedro" & classe == "C")
+trg_pedro_D <- filter(trg_data,user_name == "pedro" & classe == "D")
+trg_pedro_E <- filter(trg_data,user_name == "pedro" & classe == "E")
+
+trg_data_pedro_A_left <- mutate(trg_pedro_A, time_left = rel_time - min(rel_time))
+trg_data_pedro_B_left <- mutate(trg_pedro_B, time_left = rel_time - min(rel_time))
+trg_data_pedro_C_left <- mutate(trg_pedro_C, time_left = rel_time - min(rel_time))
+trg_data_pedro_D_left <- mutate(trg_pedro_D, time_left = rel_time - min(rel_time))
+trg_data_pedro_E_left <- mutate(trg_pedro_E, time_left = rel_time - min(rel_time))
+
+par(mfrow=c(2,2))
+plot(trg_data_adelmo_A_left$time_left,trg_data_adelmo_A_left$roll_belt,
+     main="Belt Roll for Adelmo", xlab="A sequence (seconds)", ylab="Belt Roll (degrees)")
+plot(trg_data_carlitos_A_left$time_left,trg_data_carlitos_A_left$roll_belt,
+     main="Belt Roll for Carlitos", xlab="A sequence (seconds)", ylab="Belt Roll (degrees)")
+plot(trg_data_adelmo_E_left$time_left,trg_data_adelmo_E_left$roll_belt,
+     main="Belt Roll for Adelmo", xlab="E sequence (seconds)", ylab="Belt Roll (degrees)")
+plot(trg_data_carlitos_E_left$time_left,trg_data_carlitos_E_left$roll_belt,
+     main="Belt Roll for Carlitos", xlab="E sequence (seconds)", ylab="Belt Roll (degrees)")
+
+
+```
+
+## Appendix: Aggregated Time Bin Exploratory Data Analysis
+
+The aggregated time bin data contains calculated measures from the time bin data in time windows that vary between 0.5 seconds and 2.5 seconds. The Euler angles for sensors located at the belt, arm (glove), forearm, and dumbbell as magnitude quantities for the x,y,z measurements in the time series data are:
+
+- Kurtosis and Skewness.
+- Minimum, Maximum, and Average.
+- Amplitude.
+- Variance and Standard Deviation.
+
+Here are the time window measurements after removal of several columns that only contained zeros or NAs:
+
+- kurtosis_yaw_belt
+- skewness_yaw_belt
+- kurtosis_yaw_dumbbell
+- skewness_yaw_dumbbell
+- kurtosis_yaw_forearm
+- skewness_yaw_forearm
+- amplitude_yaw_dumbbell
+- amplitude_yaw_forearm
+- amplitude_yaw_belt
+
+```{r data-sdvar, warning=FALSE, message=FALSE}
+training_nonblanks_clean_time <- filter(training_all_clean, kurtosis_roll_belt != "")
+training_sdvar_sel_clean_all <- select(training_nonblanks_clean_time,c("user_name",
         "classe","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp",
         "new_window","num_window","kurtosis_roll_belt","kurtosis_picth_belt",
         "skewness_roll_belt",
@@ -93,8 +730,381 @@ training_sdvar_sel_clean_all <- select(training_nonblanks_clean,c("user_name",
         "min_pitch_forearm","min_yaw_forearm","amplitude_roll_forearm","amplitude_pitch_forearm",
         "total_accel_forearm","var_accel_forearm","avg_roll_forearm",
         "stddev_roll_forearm","var_roll_forearm","avg_pitch_forearm","stddev_pitch_forearm",
-        "var_pitch_forearm","avg_yaw_forearm","stddev_yaw_forearm","var_yaw_forearm",
-        "rel_time"))
+        "var_pitch_forearm","avg_yaw_forearm","stddev_yaw_forearm","var_yaw_forearm"))
+```
+
+Here are the counts by user_name and classe for the time bin data.
+
+```{r data-kable-2, warning=FALSE, message=FALSE}
 kable(table(training_sdvar_sel_clean_all$user_name, training_sdvar_sel_clean_all$classe))
 ```
+
+The relevance of using machine learning for data with many variables is evident when we plot selected variables for the time bin series. There are too many combinations of scatter plots for us to plot and we do not need to. What we need to do is use the functions at our disposal to find the level of correlation between the variables in our data, and subtract those with too high a correlation. We are getting ahead of ourselves with the plots showing below because we will later determine the level of correlation for the variables in our training data, yet it's worth using that advance knowlegde here to stress the point that the need for a machine learning analysis becomes evident when there is a very large number of correlations that can be calculated from the variables in our data.
+
+## Appendix: Time Bin Feature Selection
+
+We generate the correlation matrix for our data, and use it to generate the list of features in our data with pair-wise correlation of 0.75 or greater.
+
+```{r feature-selection, warning=FALSE, message=FALSE}
+set.seed(22)
+training_sdvar_cor <- training_sdvar_sel_clean_all[,8:100]
+correlationMatrixSDVAR <- cor(training_sdvar_sel_clean_all[,8:100], use="complete.obs")
+highlyCorrelatedSDVAR75 <- findCorrelation(correlationMatrixSDVAR, cutoff=0.75)
+names(training_sdvar_cor[,highlyCorrelatedSDVAR75])
+```
+
+We use this list to remove these highly correlated features from the data we will use in our models.
+
+```{r feature-remove, warning=FALSE, message=FALSE}
+training_sdvar_sel_clean <- select(training_sdvar_sel_clean_all,c("user_name",
+        "classe","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp",
+        "new_window","num_window","kurtosis_roll_belt","skewness_roll_belt",
+        "skewness_roll_belt.1","min_roll_belt",
+        "var_roll_belt","avg_pitch_belt","var_pitch_belt",
+        "var_yaw_belt","var_accel_arm","avg_roll_arm",
+        "stddev_roll_arm","avg_pitch_arm","var_pitch_arm",
+        "avg_yaw_arm","var_yaw_arm","kurtosis_roll_arm","kurtosis_picth_arm",
+        "kurtosis_yaw_arm","skewness_roll_arm","skewness_pitch_arm","skewness_yaw_arm",
+        "max_yaw_arm","min_yaw_arm","kurtosis_picth_dumbbell",
+        "skewness_roll_dumbbell","skewness_pitch_dumbbell",
+        "max_roll_dumbbell","max_picth_dumbbell","min_roll_dumbbell",
+        "min_yaw_dumbbell","total_accel_dumbbell","var_accel_dumbbell","avg_roll_dumbbell",
+        "var_roll_dumbbell","avg_pitch_dumbbell","stddev_pitch_dumbbell",
+        "var_pitch_dumbbell","var_yaw_dumbbell","kurtosis_picth_forearm",
+        "skewness_roll_forearm","skewness_pitch_forearm",
+        "max_picth_forearm","min_roll_forearm","min_pitch_forearm",
+        "total_accel_forearm","var_accel_forearm","avg_roll_forearm","var_roll_forearm",
+        "var_pitch_forearm","avg_yaw_forearm","var_yaw_forearm"))
+```
+
+We then generate the model accuracy contribution of each feature in our data using the Recursive Feature Elimination (RFE) algorithm. This algorithm evaluates the contribution of each feature in steps, beginning with all features. Beginning with the feature that accounts for the least variability in the data, the RFE algorithm removes each feature at a time, and calculates the accuracy of the model with the sequentially reducting list of features.
+
+```{r feature-select-vars, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+training_sdvar_cor_classe_noNA <- na.omit(training_sdvar_sel_clean)
+controlSDVAR2 <- rfeControl(functions=rfFuncs, method="cv", number=10)
+resultsSDVAR2 <- rfe(training_sdvar_cor_classe_noNA[,8:58], 
+                     training_sdvar_cor_classe_noNA$classe, sizes=c(1:30), rfeControl=controlSDVAR2)
+print(resultsSDVAR2)
+
+```
+
+For our time bin data, these are the best predictors. The accuracy plot shows the accuracy of a model of the data as each least-contributing feature is removed from the model. This procedure is equivalent to a stepwise classification (the case here) or regression analysis of a dataset that goes backwards from the largest number of predictors (features).
+
+```{r feature-select-plot, warning=FALSE, message=FALSE, cache=TRUE}
+predictors(resultsSDVAR2)
+
+```
+
+## Appendix: Caret Models Applied to the Aggregated Training Data
+
+To mimic a test dataset, we resample the training data. We use this mock testing data in-place before we run on the actual testing data for this analysis. We make sure that each sequence (A to E) is resampled at the same frequency (20 each).
+
+```{r crude-resample, warning=FALSE, message=FALSE, cache=TRUE}
+table(training_sdvar_cor_classe_noNA$classe)
+set.seed(22)
+training_sdvar_cor_classe_noNA_A <- filter(training_sdvar_cor_classe_noNA, classe == "A")
+training_sdvar_cor_classe_noNA_B <- filter(training_sdvar_cor_classe_noNA, classe == "B")
+training_sdvar_cor_classe_noNA_C <- filter(training_sdvar_cor_classe_noNA, classe == "C")
+training_sdvar_cor_classe_noNA_D <- filter(training_sdvar_cor_classe_noNA, classe == "D")
+training_sdvar_cor_classe_noNA_E <- filter(training_sdvar_cor_classe_noNA, classe == "E")
+
+testing_sdvar_cor_classe_noNA_A <- sample_n(training_sdvar_cor_classe_noNA_A, 20, replace=FALSE)
+testing_sdvar_cor_classe_noNA_B <- sample_n(training_sdvar_cor_classe_noNA_B, 20, replace=FALSE)
+testing_sdvar_cor_classe_noNA_C <- sample_n(training_sdvar_cor_classe_noNA_C, 20, replace=FALSE)
+testing_sdvar_cor_classe_noNA_D <- sample_n(training_sdvar_cor_classe_noNA_D, 20, replace=FALSE)
+testing_sdvar_cor_classe_noNA_E <- sample_n(training_sdvar_cor_classe_noNA_E, 20, replace=FALSE)
+
+testing_sdvar_cor_classe_noNA <- rbind(testing_sdvar_cor_classe_noNA_A,
+                                       testing_sdvar_cor_classe_noNA_B,
+                                       testing_sdvar_cor_classe_noNA_C,
+                                       testing_sdvar_cor_classe_noNA_D,
+                                       testing_sdvar_cor_classe_noNA_E)
+```
+
+We setup repeated cross validation resampling to use in our models.
+
+```{r train-control, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+training_sdvar_cor_classe_noNA <- training_sdvar_cor_classe_noNA[,c(2,8:58)]
+controlSDVAR <- trainControl(method="repeatedcv", number=10)
+```
+
+We attempt using the following models:
+
+- "svmPoly": Least Squares Support Vector Machines with Polynomial Kernel 
+
+Here are the results for the Least Squares Support Vector Machines with Polynomial Kernel  (method="svmPoly" in caret train function) model.
+
+```{r model-svmPoly, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelSDVARsvmPoly <- train(factor(classe) ~ ., data=training_sdvar_cor_classe_noNA, 
+                       method="svmPoly", preProcess=c("scale","center"), trControl=controlSDVAR)
+print(modelSDVARsvmPoly)
+importanceSDVARsvmPoly <- varImp(modelSDVARsvmPoly, scale=TRUE)
+print(importanceSDVARsvmPoly)
+confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
+                predict(modelSDVARsvmPoly,testing_sdvar_cor_classe_noNA))
+```
+
+## trees
+
+```{r model-tree, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelSDVARC50 <- train(factor(classe) ~ ., data=training_sdvar_cor_classe_noNA, 
+                        method="C5.0", 
+                       preProcess=c("scale","center"), trControl=controlSDVAR)
+print(modelSDVARC50)
+importanceSDVARC50 <- varImp(modelSDVARC50, scale=TRUE)
+print(importanceSDVARC50)
+confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
+                predict(modelSDVARC50,testing_sdvar_cor_classe_noNA))
+```
+
+
+## random forest
+
+```{r model-rf, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelSDVARrf <- train(factor(classe) ~ ., data=training_sdvar_cor_classe_noNA, 
+                      method="rf", preProcess=c("scale","center"), trControl=controlSDVAR)
+print(modelSDVARrf)
+importanceSDVARrf <- varImp(modelSDVARrf, scale=TRUE)
+print(importanceSDVARrf)
+confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
+                predict(modelSDVARrf,testing_sdvar_cor_classe_noNA))
+```
+
+### bagged trees 
+
+```{r model-treebag, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+modelSDVARtreebag <- train(factor(classe) ~ ., data=training_sdvar_cor_classe_noNA, 
+                           method="treebag", preProcess=c("scale","center"),            trControl=controlSDVAR)
+print(modelSDVARtreebag)
+importanceSDVARtreebag <- varImp(modelSDVARtreebag, scale=TRUE)
+print(importanceSDVARtreebag)
+confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
+                predict(modelSDVARtreebag,testing_sdvar_cor_classe_noNA))
+```
+
+
+
+## all models
+```{r model-all, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+allModels <- resamples(list(SVMPoly=modelSDVARsvmPoly, 
+                          DecisionTree=modelSDVARC50, 
+                          RandomForest=modelSDVARrf, 
+                          BaggedTrees=modelSDVARtreebag
+                          ))
+summary(allModels)
+```
+
+From these, we select 
+ - Decision Tree
+ - Random Forest
+ - Bagged Trees 
+ - SVMpoly 
+
+## Appendix: Time Unaggregated Data Feature Selection
+
+```{r time-cv-1, warning=FALSE, message=FALSE, cache=TRUE}
+training_blanks_cv_A <- filter(training_blanks_cv, classe == "A")
+training_blanks_cv_B <- filter(training_blanks_cv, classe == "B")
+training_blanks_cv_C <- filter(training_blanks_cv, classe == "C")
+training_blanks_cv_D <- filter(training_blanks_cv, classe == "D")
+training_blanks_cv_E <- filter(training_blanks_cv, classe == "E")
+
+training_blanks_cv_sample_A <- sample_n(training_blanks_cv_A, 100, replace=FALSE)
+training_blanks_cv_sample_B <- sample_n(training_blanks_cv_B, 100, replace=FALSE)
+training_blanks_cv_sample_C <- sample_n(training_blanks_cv_C, 100, replace=FALSE)
+training_blanks_cv_sample_D <- sample_n(training_blanks_cv_D, 100, replace=FALSE)
+training_blanks_cv_sample_E <- sample_n(training_blanks_cv_E, 100, replace=FALSE)
+
+training_blanks_cv_sample <- rbind(training_blanks_cv_sample_A,
+                                   training_blanks_cv_sample_B,
+                                   training_blanks_cv_sample_C,
+                                   training_blanks_cv_sample_D,
+                                   training_blanks_cv_sample_E)
+
+table(training_blanks_cv_sample$classe)
+```
+
+######
+
+```{r time-cv-2, warning=FALSE, message=FALSE, cache=TRUE}
+set.seed(22)
+controlTSCV <- rfeControl(functions=rfFuncs, method="repeatedcv", number=3)
+
+correlationMatrixTSCV <- cor(training_blanks_cv_sample[,1:52], use="complete.obs")
+highlyCorrelatedTSCV75 <- findCorrelation(correlationMatrixTSCV, cutoff=0.75)
+names(training_blanks_cv_sample[,highlyCorrelatedTSCV75])
+```
+
+#remove these
+#"yaw_belt"         "accel_belt_x"     "accel_belt_z"     "roll_belt"        "pitch_belt"      
+#"total_accel_belt" "accel_dumbbell_z" "accel_dumbbell_y" "accel_arm_x"      "accel_dumbbell_x"
+#"accel_arm_z"      "magnet_arm_y"     "magnet_forearm_y" "gyros_arm_x"      "gyros_forearm_y" 
+
+
+```{r time-cv-3, warning=FALSE, message=FALSE, cache=TRUE}
+resultsTSCV <- rfe(training_blanks_cv_sample[,1:52], 
+                 training_blanks_cv_sample$classe, sizes=c(1:30), rfeControl=controlTSCV)
+print(resultsTSCV)
+
+predictors(resultsTSCV)
+```
+
+
+############
+
+```{r time-cv-rf, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScvrf <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
+                     method="rf", preProcess=c("scale","center"), 
+                     trControl=TcontrolTS, na.action=na.pass)
+print(modelTScvrf)
+importanceTSCVrf <- varImp(modelTScvrf, scale=TRUE)
+print(importanceTSCVrf)
+```
+
+
+```{r time-cv-c50, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScvC50 <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
+                      method="C5.0", preProcess=c("scale","center"), 
+                      trControl=TcontrolTS, na.action=na.pass)
+print(modelTScvC50)
+importanceTSCVC50 <- varImp(modelTScvC50, scale=TRUE)
+print(importanceTSCVC50)
+```
+
+## Running the training model on the test data for Bagged Trees (all fields) 
+
+```{r time-cv-rf-treebag, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScvtreebag <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
+                          method="treebag", preProcess=c("scale","center"), 
+                          trControl=TcontrolTS, na.action=na.pass)
+print(modelTScvtreebag)
+importanceTSCVtreebag <- varImp(modelTScvtreebag, scale=TRUE)
+print(importanceTSCVtreebag)
+```
+
+
+## Running the training model on the test data for SVM Polynomial Kernel (all fields) 
+
+```{r time-cv-svmPoly, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScvsvmPoly <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
+                          method="svmPoly", preProcess=c("scale","center"), 
+                          trControl=TcontrolTS, na.action=na.pass)
+print(modelTScvsvmPoly)
+importanceTSCVsvmPoly <- varImp(modelTScvsvmPoly, scale=TRUE)
+print(importanceTSCVsvmPoly)
+```
+
+
+## all models
+
+```{r time-cv-allmodels, warning=FALSE, message=FALSE, cache=TRUE}
+allModelscv <- resamples(list(SVMPoly=modelTScvsvmPoly, 
+                               DecisionTree=modelTScvC50, 
+                               RandomForest=modelTScvrf, 
+                               BaggedTrees=modelTScvtreebag
+))
+summary(allModelscv)
+```
+
+### run to estimate accuracy with reduced predictor list
+
+############
+
+```{r time-cv2-rf, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScv2rf <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
+                  gyros_belt_y + gyros_belt_z +   
+                  magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                  accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                  pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                  gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                  pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                  gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                  magnet_forearm_x + magnet_forearm_y + 
+                  magnet_forearm_z, data=training_blanks_cv_sample, 
+                     method="rf", preProcess=c("scale","center"), 
+                     trControl=TcontrolTS, na.action=na.pass)
+print(modelTScv2rf)
+importanceTSCV2rf <- varImp(modelTScv2rf, scale=TRUE)
+print(importanceTSCV2rf)
+```
+
+
+```{r time-cv2-c50, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScv2C50 <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
+                  gyros_belt_y + gyros_belt_z +   
+                  magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                  accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                  pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                  gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                  pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                  gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                  magnet_forearm_x + magnet_forearm_y + 
+                  magnet_forearm_z, data=training_blanks_cv_sample, 
+                      method="C5.0", preProcess=c("scale","center"), 
+                      trControl=TcontrolTS, na.action=na.pass)
+print(modelTScv2C50)
+importanceTSCV2C50 <- varImp(modelTScv2C50, scale=TRUE)
+print(importanceTSCV2C50)
+```
+
+## Running the training model on the test data for Bagged Trees (minus high corrrelation fields) 
+
+```{r time-cv2-rf-treebag, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScv2treebag <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
+                  gyros_belt_y + gyros_belt_z +   
+                  magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                  accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                  pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                  gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                  pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                  gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                  magnet_forearm_x + magnet_forearm_y + 
+                  magnet_forearm_z, data=training_blanks_cv_sample, 
+                          method="treebag", preProcess=c("scale","center"), 
+                          trControl=TcontrolTS, na.action=na.pass)
+print(modelTScv2treebag)
+importanceTSCV2treebag <- varImp(modelTScv2treebag, scale=TRUE)
+print(importanceTSCV2treebag)
+```
+
+
+## Running the training model on the test data for SVM Polynomial Kernel (all fields) 
+
+```{r time-cv2-svmPoly, warning=FALSE, message=FALSE, cache=TRUE}
+modelTScv2svmPoly <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
+                  gyros_belt_y + gyros_belt_z +   
+                  magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + 
+                  accel_belt_y + accel_belt_z + magnet_belt_x +  magnet_arm_y + roll_dumbbell + 
+                  pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + 
+                  gyros_dumbbell_y + gyros_dumbbell_z +  magnet_dumbbell_z + roll_forearm + 
+                  pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + 
+                  gyros_forearm_y + gyros_forearm_z +  accel_forearm_x + accel_forearm_z + 
+                  magnet_forearm_x + magnet_forearm_y + 
+                  magnet_forearm_z, data=training_blanks_cv_sample, 
+                          method="svmPoly", preProcess=c("scale","center"), 
+                          trControl=TcontrolTS, na.action=na.pass)
+print(modelTScv2svmPoly)
+importanceTSCV2svmPoly <- varImp(modelTScv2svmPoly, scale=TRUE)
+print(importanceTSCV2svmPoly)
+```
+
+
+## all models
+
+```{r time-cv2-allmodels, warning=FALSE, message=FALSE, cache=TRUE}
+allModelscv2 <- resamples(list(SVMPoly=modelTScv2svmPoly, 
+                               DecisionTree=modelTScv2C50, 
+                               RandomForest=modelTScv2rf, 
+                               BaggedTrees=modelTScv2treebag
+))
+summary(allModelscv2)
+```
+
 
