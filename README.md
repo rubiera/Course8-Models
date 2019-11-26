@@ -1,6 +1,6 @@
 # Note to grader
 
-My complete analysis is in the PDF file titled: "Machine Learning Modeling of Selected Weight-lifting Activities"
+My complete analysis is in the PDF file C8W4A-Report-V5-final.pdf titled: "Machine Learning Modeling of Selected Weight-lifting Activities"
 
 # Summary of this Analysis
 
