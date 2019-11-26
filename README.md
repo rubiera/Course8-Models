@@ -1,5 +1,6 @@
-# Course8-Models
-Final Assignment for Human Activity Modeling (course 8)
+# Note to grader
+
+My complete analysis is in the PDF file titled: "Machine Learning Modeling of Selected Weight-lifting Activities"
 
 # Summary of this Analysis
 
