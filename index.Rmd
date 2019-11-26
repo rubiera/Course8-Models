@@ -15,19 +15,38 @@ knitr::opts_chunk$set(echo = TRUE)
 
 In this analysis, we evaluate the data used by Velloso et al. in their paper "Qualitative Activity Recognition of Weight Lifting Exercises" [ACM SIGCHI 2013]. The data was collected for six young men performing weight-lifting exercises with a light dumbbell (1.25 KG) using five pre-determined sequences (named as the variable 'classe' in the dataset). Sequence A is the correct sequence, and sequences B, C, D, and E are variations of the men performing the weigth-lifting exercise incorrectly. Sequences B, C, D, and E are specific ways to perform the weigth-lifting exercise incorrectly, and this means that the four wrong sequences should be just as separable from each other as they are from A.
 
-We use a specific seed (22) to ensure our data runs are reproducible. We perform exploratory data analysis (EDA), caret model selection, and feature selection in an appendix. These steps are as follows:
+We use a specific seed (22) to ensure our data runs are reproducible. We perform exploratory data analysis (EDA), caret model selection, and feature selection in an appendix. The steps relegated to an appendix are as follows:
 
-- Explore the (unaggregated) training time series data to get a feel for what movements were performed for each sequence, as captured by the classe variable.
-- After selecting only the rows with aggregated time bin data from the training data, and removing fields that contain no data all all zero and/or all NA values, we explore this subset of the data.
+- Explore the unaggregated training time series data to get a feel for what movements were performed for each sequence, as captured by the classe variable. We plot a small sample of these.
+- Explore the aggregated training time series data after selecting only the rows containing these fileds, and removing fields that contain no data, all zeroes and/or all NA values.
 - For the aggregated time bin training data, we generate the model accuracy contribution of each feature using the Recursive Feature Elimination (RFE) algorithm. We come up with the features with greater than or equal to 0.75 correlation as features that can be excluded from the classification training algorithms, but none of these fields are found in the test data. Therefore, this selection criteria is not useful in our analysis.
-- For the aggregated time bin training data, and using all predictors found in the training data, we apply ten models using the caret package to asses the within sample accuracy of predicting the weight-lifting activities using classe as our response variable. We resample from within the training data to obtain confusion matrix results for each caret model. From this work, we determine that four models (Decision Tree, Random Forest, Bagged Trees and SVMpoly-short for Support Vector Machines with polynomial kernel) yield the highest accuracy and kappa measures.
+- For the aggregated time bin training data, and using all predictors found in the training data, we apply four models (Decision Tree, Random Forest, Bagged Trees and SVMpoly-short for Support Vector Machines with polynomial kernel) using the caret package to asses the within sample accuracy of predicting the weight-lifting activities using classe as our response variable. We resample from within the training data to obtain confusion matrix results for each caret model. 
 - For the unaggregated time bin training data, we generate the model accuracy contribution of each feature using the RFE algorithm. We come up with the features with greater than or equal to 0.75 correlation as features that can be excluded from the classification training algorithms. Since some of these fields we want to exclude are found in the test data, we use this knowledge. 
 - Finally, within the appendix, and for the unaggregated time bin training data, using all predictors found in the training data, we apply the four models we found to have the highest accuracy and kappa measures (Decision Tree, Random Forest, Bagged Trees and SVMpoly), using the caret package to asses the within sample accuracy of predicting the weight-lifting activities using classe as our response variable. We resample here as well from within the training data to obtain confusion matrix results for each caret model.
 
+We estimate in-sample error using the model's accuracy when resampling from within the training data, and out-of-sample error using the model's accuracy when comparing the training data to the test data. All of the percent accuracy numbers quoted in this summary are for a Random Forest model, and we have the same results for three other models (Decision Tree, Bagged Trees and SVMpoly) in the body of the analysis. The estimates for in-sample error using the model's accuracy are in the appendix, and the estimates for out-of-sample error using the model's accuracy are in the three cycles of analysis in the main body of this work.
+
+From the appendix, our in-sample error results for the Random Forest model are:
+
+- 77.5 percent when using only the time-aggregated predictors.
+- 84.8 percent when using only the unaggregated predictors, for all fields
+- 81.8 percent when using only the unaggregated predictors, for all fields minus the highly correlated fields.
+
 After we perform all of the steps previously outlined and contained here in an appendix, we have four caret models we want to apply on the test data in two cycles:
 
-- In the first cycle, we use all predictors. We obtain predictions for classe for the 20 events in the test data. We estimate that the out of sample error will be close to the in-sample error (approximately 84.8 percent mean accuracy for a Random Forest model using the unaggregate time data). We find the mean accuracy for a Random Forest model to be 79.3 using all predictors.
-- In the second and last cycle, we use only the predictors that have less than 0.75 correlation, based on our cross-validation analysis described in the appendix. We expect the out of sample error will be close to the in-sample error (approximately 81.8 percent mean accuracy for a Random Forest model using the unaggregate time data). We find the mean accuracy for a Random Forest model to be 76.0 using only the least-correlated predictors. We expected this accuracy to be higher than the accuracy when using all predictors.
+- In the first cycle, we use all predictors. We obtain predictions for classe for the 20 events in the test data. We estimate that the out of sample error will be close to the in-sample error (approximately 84.8 percent mean accuracy for a Random Forest model using the unaggregate time data). We find the mean accuracy for a Random Forest model to be 79.3 percent using all predictors.
+- In the second and cycle, we use only the predictors that have less than 0.75 correlation, based on our cross-validation analysis described in the appendix. We expect the out of sample error will be close to the in-sample error (approximately 81.8 percent mean accuracy for a Random Forest model using the unaggregate time data). We find the mean accuracy for a Random Forest model to be 76.0 percent using only the least-correlated predictors. We expected this accuracy to be higher than the accuracy when using all predictors.
+In the third and last cycle, We find the mean accuracy for a Random Forest model to be 77.3 using only the top 20 least-correlated predictors. We expected this accuracy to be higher than the accuracy when using all predictors. We subtract one predictor at a time for four additional accuracy measurements and find that the accuracy is 78.8 percent minus one predictor, 76.8 percent minus two predictors, 76.8 percent minus three predictors, and 77.3 percent minus four predictors.
+
+From these three cycles of analysis, our out-of-sample error results for the Random Forest model are:
+
+- 79.3 percent when using only the unaggregated predictors, for all fields
+- 76.0 percent when using only the unaggregated predictors, for all fields minus the highly correlated fields.
+-Within the range between 76.8 percent and 78.8 percent when using only the top 20 unaggregated predictors, and subtracting one field at a time based on the accuracy results of the top 20 model four times.
+
+## Analysis Conclusion
+
+We present our conclusion here for the benefit of the Coursera graders. The rest of this analysis has all of the supporting work for this conclusion. We find the in-sample error to be slightly lower than the out-of-sample error. We also find all of the error measurements, using model accuracy as a proxy, to be in the range from the higher 70s percents to the lower 80s percents. Our predictor selection did not change the accuracy results significantly. We attribute this result to a high level of noise in the data, and many missing fields. 
  
 
 ```{r library-seed, warning=FALSE, message=FALSE}
@@ -74,8 +93,7 @@ Here are the counts by user_name and classe for the time series data.
 kable(table(training_all_data$user_name, training_all_data$classe))
 ```
 
-
-## Predicting Classe for the Test Data
+## Predicting Classe for the Test Data for all Predictors (First Analysis Cycle)
 
 We relegate the explotary data analysis, and running various caret models on resampled training data to an appendix. From this analysis, we determine that four types of models should yield the most accuate results:
 
@@ -165,7 +183,7 @@ set.seed(22)
 controlTS <- rfeControl(functions=rfFuncs, method="repeatedcv", number=3)
 ```
 
-Text
+We find the fields with the highest correlation factor, setting our threshold at 0.75 correlation.
 
 ```{r predict-rf-feature-selection-1, warning=FALSE, message=FALSE}
 set.seed(22)
@@ -174,7 +192,7 @@ highlyCorrelatedTS75 <- findCorrelation(correlationMatrixTS, cutoff=0.75)
 names(training_nonblanks_clean[,highlyCorrelatedTS75])
 ```
 
-Text
+We use the data with all predictors to perform feature selection using the rfe function in caret. This function performs a simple backwards selection, known as recursive feature elimination (RFE). It finds the model accuracy and kappa for all predictors, and subtracts each least contributing predictor one at a time for the number of predictors we ask (20) out of all predictors.
 
 ```{r predict-rf-feature-selection-2, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -184,8 +202,7 @@ print(resultsTS)
 
 ```
 
-
-Text
+Here are the most relevant predictors and a plot of the model accuracy (for a Random Forest) as the RFE algorithm subtracts one predictor at a time from the model. By the eight predictor remove, we have model accuracy in the upper 70s percents, where it remains when additional predictors are removed from the model.
 
 ```{r predict-rf-feature-selection-3, warning=FALSE, message=FALSE}
 set.seed(22)
@@ -193,11 +210,9 @@ predictors(resultsTS)
 plot(resultsTS, type=c("g", "o"))
 ```
 
+## Running four caret models on all predictors.
 
-
-
-## Running the training model on the test data for Random Forests (all fields) 
-
+We run the training model on the test data for Random Forest (all fields). 
 
 ```{r predict-3-rf-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -210,14 +225,14 @@ importanceTSrf <- varImp(modelTSrf, scale=TRUE)
 print(importanceTSrf)
 ```
 
-Text
+We predict the classe for the testing data using a Random Forest model.
 
 ```{r predict-4-rf-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 predictrf <- predict(modelTSrf,newdata=testing_nonblanks_clean)
 predictrf
 ```
 
-## Running the training model on the test data for Decision Trees (all fields) 
+We run the training model on the test data for Decision Trees (all fields).
 
 ```{r predict-3-C50-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -229,16 +244,14 @@ importanceTSC50 <- varImp(modelTSC50, scale=TRUE)
 print(importanceTSC50)
 ```
 
-Text
+We predict the classe for the testing data using a Decision Trees model.
 
 ```{r predict-4-C5.0-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 predictC50 <- predict(modelTSC50,newdata=testing_nonblanks_clean)
 predictC50
 ```
 
-
-## Running the training model on the test data for Bagged Trees (all fields) 
-
+We run the training model on the test data for Bagged Trees (all fields).
 
 ```{r predict-3-treebag-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -250,15 +263,14 @@ importanceTStreebag <- varImp(modelTStreebag, scale=TRUE)
 print(importanceTStreebag)
 ```
 
-Text
+We predict the classe for the testing data using a Bagged Trees model.
 
 ```{r predict-4-treebag-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 predicttreebag <- predict(modelTStreebag,newdata=testing_nonblanks_clean)
 predicttreebag
 ```
 
-
-## Running the training model on the test data for SVM Polynomial Kernel (all fields) 
+We run the training model on the test data for SVM Polynomial Kernel (all fields).
 
 
 ```{r predict-3-svmPoly-allfields, warning=FALSE, message=FALSE, cache=TRUE}
@@ -271,14 +283,14 @@ importanceTSsvmPoly <- varImp(modelTSsvmPoly, scale=TRUE)
 print(importanceTSsvmPoly)
 ```
 
-Text
+We predict the classe for the testing data using a SVM Polynomial Kernel model.
 
 ```{r predict-4-svmPoly-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 predictsvmPoly <- predict(modelTSsvmPoly,newdata=testing_nonblanks_clean)
 predictsvmPoly
 ```
 
-## all models
+We resample the accuracy and kappa of the four models for all predictors.
 
 ```{r model-all-allfields, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -290,14 +302,13 @@ allModelsall <- resamples(list(SVMPoly=modelTSsvmPoly,
 summary(allModelsall)
 ```
 
-
-Text                    
+Here is a box plot of the accuracy for the four models we attempted for all predictors.                    
 
 ```{r model-bwplot-1-all, warning=FALSE, message=FALSE, cache=TRUE}
 bwplot(allModelsall)
 ```
 
-Text
+Here are the predictions for the classe of the test data for the four models for all predictors.
 
 ```{r data-kable-models-1-all, warning=FALSE, message=FALSE}
 require(knitr)
@@ -306,9 +317,11 @@ predictTableall <- cbind(testing_nonblanks_clean$problem_id,
 kable(predictTableall)
 ```
 
-Explain use of minus highly correlated fields
-## Running the training model on the test data for Random Forests (minus highly correlated fields) 
+## Predicting Classe for the Test Data for the least correlated Predictors (Second Analysis Cycle)
 
+We have determined the highly correlated fields (in the appendix) and take them our of the classification training for the four models in this analysis.
+
+We run the training model on the test data for Random Forests (minus highly correlated fields). 
 
 ```{r predict-3-rf-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -329,7 +342,7 @@ importanceTSselrf <- varImp(modelTSselrf, scale=TRUE)
 print(importanceTSselrf)
 ```
 
-Text
+We predict the classe for the testing data using a Random Forests model.
 
 ```{r predict-4-rf-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -337,8 +350,7 @@ predictselrf <- predict(modelTSselrf,newdata=testing_nonblanks_clean)
 predictselrf
 ```
 
-## Running the training model on the test data for Decision Trees (minus highly correlated fields) 
-
+We run the training model on the test data for Decision Trees (minus highly correlated fields). 
 
 ```{r predict-3-C50-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -358,7 +370,7 @@ importanceTSselC50 <- varImp(modelTSselC50, scale=TRUE)
 print(importanceTSselC50)
 ```
 
-Text
+We predict the classe for the testing data using a Decision Trees model.
 
 ```{r predict-4-C50-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -366,9 +378,7 @@ predictselC50 <- predict(modelTSselC50,newdata=testing_nonblanks_clean)
 predictselC50
 ```
 
-
-## Running the training model on the test data for Bagged Trees (minus highly correlated fields) 
-
+We run the training model on the test data for Bagged Trees (minus highly correlated fields). 
 
 ```{r predict-3-treebag-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -389,7 +399,7 @@ importanceTSseltreebag <- varImp(modelTSseltreebag, scale=TRUE)
 print(importanceTSseltreebag)
 ```
 
-Text
+We predict the classe for the testing data using a Bagged Trees model.
 
 ```{r predict-4-treebag-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -397,8 +407,7 @@ predictseltreebag <- predict(modelTSseltreebag,newdata=testing_nonblanks_clean)
 predictseltreebag
 ```
 
-## Running the training model on the test data for SVM Polynomial Kernel (minus highly correlated fields) 
-
+We run the training model on the test data for SVM Polynomial Kernel (minus highly correlated fields). 
 
 ```{r predict-3-svmPoly-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -419,7 +428,7 @@ importanceTSselsvmPoly <- varImp(modelTSselsvmPoly, scale=TRUE)
 print(importanceTSselsvmPoly)
 ```
 
-Text
+We predict the classe for the testing data using a SVM Polynomial Kernel model.
 
 ```{r predict-4-svmPoly-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -427,8 +436,8 @@ predictselsvmPoly <- predict(modelTSselsvmPoly,newdata=testing_nonblanks_clean)
 predictselsvmPoly
 ```
 
+We resample the accuracy and kappa of the four models for the least correlated predictors.
 
-## all models
 
 ```{r model-sel, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -440,14 +449,14 @@ allModelssel <- resamples(list(SVMPoly=modelTSselsvmPoly,
 summary(allModelssel)
 ```
 
-
-Text                    
+Here is a box plot of the accuracy for the four models we attempted for the least correlated predictors.
+                    
 
 ```{r model-sel-bwplot-1, warning=FALSE, message=FALSE, cache=TRUE}
 bwplot(allModelssel)
 ```
 
-Text
+Here are the predictions for the classe of the test data for the four models for the least correlated predictors.
 
 ```{r data-kable-models-1, warning=FALSE, message=FALSE}
 require(knitr)
@@ -456,7 +465,10 @@ predictTable <- cbind(testing_nonblanks_clean$problem_id,
 kable(predictTable)
 ```
 
-top 20 only
+
+## Predicting Classe for the Test Data for the top 20 and fewer Predictors (Third Analysis Cycle)
+
+We run the training model on the test data for Random Forest (top 20 least correlated fields).
 
 ```{r predict-3-rf-sel-top20, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -475,10 +487,8 @@ predictselrftop20 <- predict(modelTSselrftop20,newdata=testing_nonblanks_clean)
 predictselrftop20
 ```
 
-
-Stepwise getting rid of predictors one by one:
-#magnet_forearm_y    0.000   1
-
+First subtraction: stepwise, we are getting rid of predictors one by one; magnet_forearm_y, with a 0.000 percent contribution to the accuracy.
+ 
 ```{r predict-3-rf-sel-minus1, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
 modelTSselrfminus1 <- train(factor(classe) ~ roll_dumbbell + magnet_belt_y + 
@@ -496,8 +506,7 @@ predictselrfminus1 <- predict(modelTSselrfminus1,newdata=testing_nonblanks_clean
 predictselrfminus1
 ```
 
-Stepwise getting rid of predictors one by one:
-accel_forearm_z     4.376  2
+Second subtraction: stepwise, we are getting rid of predictors one by one; accel_forearm_z, with a 4.376 percent importance to the accuracy.
 
 ```{r predict-3-rf-sel-minus2, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -515,6 +524,8 @@ print(importanceTSselrfminus2)
 predictselrfminus2 <- predict(modelTSselrfminus2,newdata=testing_nonblanks_clean)
 predictselrfminus2
 ```
+
+Third subtraction: stepwise, we are getting rid of predictors one by one; accel_forearm_z, with a 4.376 percent importance to the accuracy.
 
 Stepwise getting rid of predictors one by one:
  magnet_belt_x       6.859  3 
@@ -536,8 +547,7 @@ predictselrfminus3 <- predict(modelTSselrfminus3,newdata=testing_nonblanks_clean
 predictselrfminus3
 ```
 
-Stepwise getting rid of predictors one by one:
-magnet_forearm_z   10.501  4
+Fourth, and final subtraction: stepwise, we are getting rid of predictors one by one; magnet_forearm_z, with a 10.501 percent importance to the accuracy.
 
 ```{r predict-3-rf-sel-minus4, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -556,7 +566,7 @@ predictselrfminus4 <- predict(modelTSselrfminus4,newdata=testing_nonblanks_clean
 predictselrfminus4
 ```
 
-Text
+Here are the predictions for the classe of the test data for the four models for the top 20 predictors and four stepwise subtractions.
 
 ```{r data-kable-models-minus, warning=FALSE, message=FALSE}
 require(knitr)
@@ -566,7 +576,8 @@ predictTable2 <- cbind(testing_nonblanks_clean$problem_id,predictselrftop20,
 kable(predictTable2)
 ```
 
-## all models minus
+We resample the accuracy and kappa for the top 20 predictors and four stepwise subtractions.
+
 
 ```{r model-sel-minus, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -579,13 +590,11 @@ allModelsselminus <- resamples(list(Top20=modelTSselrftop20,
 summary(allModelsselminus)
 ```
 
-
-Text                    
+Here is a box plot of the accuracy for the top 20 predictors and four stepwise subtractions.                    
 
 ```{r model-sel-bwplot-1-minus, warning=FALSE, message=FALSE, cache=TRUE}
 bwplot(allModelsselminus)
 ```
-
 
 ## Appendix: Time Series Exploratory Data Analysis
 
@@ -830,10 +839,6 @@ training_sdvar_cor_classe_noNA <- training_sdvar_cor_classe_noNA[,c(2,8:58)]
 controlSDVAR <- trainControl(method="repeatedcv", number=10)
 ```
 
-We attempt using the following models:
-
-- "svmPoly": Least Squares Support Vector Machines with Polynomial Kernel 
-
 Here are the results for the Least Squares Support Vector Machines with Polynomial Kernel  (method="svmPoly" in caret train function) model.
 
 ```{r model-svmPoly, warning=FALSE, message=FALSE, cache=TRUE}
@@ -847,7 +852,7 @@ confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
                 predict(modelSDVARsvmPoly,testing_sdvar_cor_classe_noNA))
 ```
 
-## trees
+Here are the results for the Decision Trees (method="C5.0" in caret train function) model.
 
 ```{r model-tree, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -861,8 +866,7 @@ confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
                 predict(modelSDVARC50,testing_sdvar_cor_classe_noNA))
 ```
 
-
-## random forest
+Here are the results for the Random Forest (method="rf" in caret train function) model.
 
 ```{r model-rf, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -875,7 +879,7 @@ confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
                 predict(modelSDVARrf,testing_sdvar_cor_classe_noNA))
 ```
 
-### bagged trees 
+Here are the results for the Bagged Trees (method="treebag" in caret train function) model.
 
 ```{r model-treebag, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -888,9 +892,8 @@ confusionMatrix(testing_sdvar_cor_classe_noNA$classe,
                 predict(modelSDVARtreebag,testing_sdvar_cor_classe_noNA))
 ```
 
+We resample the accuracy and kappa of the four models for all predictors.
 
-
-## all models
 ```{r model-all, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
 allModels <- resamples(list(SVMPoly=modelSDVARsvmPoly, 
@@ -900,12 +903,6 @@ allModels <- resamples(list(SVMPoly=modelSDVARsvmPoly,
                           ))
 summary(allModels)
 ```
-
-From these, we select 
- - Decision Tree
- - Random Forest
- - Bagged Trees 
- - SVMpoly 
 
 ## Appendix: Time Unaggregated Data Feature Selection
 
@@ -931,7 +928,7 @@ training_blanks_cv_sample <- rbind(training_blanks_cv_sample_A,
 table(training_blanks_cv_sample$classe)
 ```
 
-######
+We set-up a resampling method, and find out which fields have a correlation value of 0.75 or higher. These are the fields we remove between the first and second cycle of the analysis, as described in the main body of this work above.
 
 ```{r time-cv-2, warning=FALSE, message=FALSE, cache=TRUE}
 set.seed(22)
@@ -942,11 +939,7 @@ highlyCorrelatedTSCV75 <- findCorrelation(correlationMatrixTSCV, cutoff=0.75)
 names(training_blanks_cv_sample[,highlyCorrelatedTSCV75])
 ```
 
-#remove these
-#"yaw_belt"         "accel_belt_x"     "accel_belt_z"     "roll_belt"        "pitch_belt"      
-#"total_accel_belt" "accel_dumbbell_z" "accel_dumbbell_y" "accel_arm_x"      "accel_dumbbell_x"
-#"accel_arm_z"      "magnet_arm_y"     "magnet_forearm_y" "gyros_arm_x"      "gyros_forearm_y" 
-
+Here are the contributions for the sequential predictors and the stepwise classification performed usign the RFE algorithm.
 
 ```{r time-cv-3, warning=FALSE, message=FALSE, cache=TRUE}
 resultsTSCV <- rfe(training_blanks_cv_sample[,1:52], 
@@ -956,8 +949,9 @@ print(resultsTSCV)
 predictors(resultsTSCV)
 ```
 
+## Appendix: Training the model using resampled training data and all predictors.
 
-############
+- Random Forest
 
 ```{r time-cv-rf, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScvrf <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
@@ -968,6 +962,7 @@ importanceTSCVrf <- varImp(modelTScvrf, scale=TRUE)
 print(importanceTSCVrf)
 ```
 
+- Decision Trees
 
 ```{r time-cv-c50, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScvC50 <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
@@ -978,7 +973,7 @@ importanceTSCVC50 <- varImp(modelTScvC50, scale=TRUE)
 print(importanceTSCVC50)
 ```
 
-## Running the training model on the test data for Bagged Trees (all fields) 
+- Bagged Trees
 
 ```{r time-cv-rf-treebag, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScvtreebag <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
@@ -989,8 +984,7 @@ importanceTSCVtreebag <- varImp(modelTScvtreebag, scale=TRUE)
 print(importanceTSCVtreebag)
 ```
 
-
-## Running the training model on the test data for SVM Polynomial Kernel (all fields) 
+- SVM Polynomial Kernel  
 
 ```{r time-cv-svmPoly, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScvsvmPoly <- train(factor(classe) ~ ., data=training_blanks_cv_sample, 
@@ -1001,8 +995,7 @@ importanceTSCVsvmPoly <- varImp(modelTScvsvmPoly, scale=TRUE)
 print(importanceTSCVsvmPoly)
 ```
 
-
-## all models
+We resample the accuracy and kappa of the four models for all predictors using resampled training data as mock test data.
 
 ```{r time-cv-allmodels, warning=FALSE, message=FALSE, cache=TRUE}
 allModelscv <- resamples(list(SVMPoly=modelTScvsvmPoly, 
@@ -1013,9 +1006,9 @@ allModelscv <- resamples(list(SVMPoly=modelTScvsvmPoly,
 summary(allModelscv)
 ```
 
-### run to estimate accuracy with reduced predictor list
+## Appendix: Training the model using resampled training data and the least correlated predictors.
 
-############
+- Random Forest
 
 ```{r time-cv2-rf, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScv2rf <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
@@ -1035,6 +1028,7 @@ importanceTSCV2rf <- varImp(modelTScv2rf, scale=TRUE)
 print(importanceTSCV2rf)
 ```
 
+- Decision Trees
 
 ```{r time-cv2-c50, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScv2C50 <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
@@ -1054,7 +1048,7 @@ importanceTSCV2C50 <- varImp(modelTScv2C50, scale=TRUE)
 print(importanceTSCV2C50)
 ```
 
-## Running the training model on the test data for Bagged Trees (minus high corrrelation fields) 
+- Bagged Trees
 
 ```{r time-cv2-rf-treebag, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScv2treebag <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
@@ -1074,8 +1068,7 @@ importanceTSCV2treebag <- varImp(modelTScv2treebag, scale=TRUE)
 print(importanceTSCV2treebag)
 ```
 
-
-## Running the training model on the test data for SVM Polynomial Kernel (all fields) 
+- SVM Polynomial Kernel
 
 ```{r time-cv2-svmPoly, warning=FALSE, message=FALSE, cache=TRUE}
 modelTScv2svmPoly <- train(factor(classe) ~ pitch_belt + yaw_belt + gyros_belt_x + 
@@ -1095,8 +1088,7 @@ importanceTSCV2svmPoly <- varImp(modelTScv2svmPoly, scale=TRUE)
 print(importanceTSCV2svmPoly)
 ```
 
-
-## all models
+We resample the accuracy and kappa of the four models for the least correlated predictors using resampled training data as mock test data.
 
 ```{r time-cv2-allmodels, warning=FALSE, message=FALSE, cache=TRUE}
 allModelscv2 <- resamples(list(SVMPoly=modelTScv2svmPoly, 
